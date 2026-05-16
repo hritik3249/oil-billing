@@ -28,17 +28,32 @@ export default function BillsPage() {
     if (dateFrom) params.set('date_from', dateFrom)
     if (dateTo)   params.set('date_to', dateTo)
     if (dueOnly)  params.set('due_only', 'true')
-    const res = await fetch(`/api/bills?${params}`)
+    // bust cache every fetch
+    params.set('t', String(Date.now()))
+    const res = await fetch(`/api/bills?${params}`, {
+      cache: 'no-store',
+      headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
+    })
     const data = await res.json()
     setBills(Array.isArray(data) ? data : [])
     setLoading(false)
   }
 
   useEffect(() => { fetchBills() }, [dueOnly])
+
   useEffect(() => {
     const t = setTimeout(fetchBills, 350)
     return () => clearTimeout(t)
   }, [search, dateFrom, dateTo])
+
+  // Refresh when tab becomes visible
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') fetchBills()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [search, dateFrom, dateTo, dueOnly])
 
   const deleteBill = async (id: string) => {
     const res = await fetch(`/api/bills?id=${id}`, { method: 'DELETE' })
@@ -51,6 +66,10 @@ export default function BillsPage() {
     }
     setConfirmId(null)
   }
+
+  // Compute totals from current filtered list
+  const totalDue   = bills.reduce((s, b) => s + b.due_amount, 0)
+  const totalBills = bills.reduce((s, b) => s + b.total_amount, 0)
 
   return (
     <div className="space-y-4">
@@ -72,16 +91,8 @@ export default function BillsPage() {
             <h3 className="font-bold text-gray-800 text-lg text-center mb-1">Delete Bill?</h3>
             <p className="text-gray-500 text-sm text-center mb-5">This action cannot be undone. The bill will be permanently deleted.</p>
             <div className="flex gap-3">
-              <button
-                onClick={() => setConfirmId(null)}
-                className="btn-secondary flex-1"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => deleteBill(confirmId)}
-                className="btn-danger flex-1 flex items-center justify-center gap-2"
-              >
+              <button onClick={() => setConfirmId(null)} className="btn-secondary flex-1">Cancel</button>
+              <button onClick={() => deleteBill(confirmId)} className="btn-danger flex-1 flex items-center justify-center gap-2">
                 <Trash2 className="w-4 h-4" /> Delete
               </button>
             </div>
@@ -89,12 +100,26 @@ export default function BillsPage() {
         </div>
       )}
 
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-800">Bills</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Bills</h1>
+          <p className="text-sm text-gray-400">{bills.length} bills · {formatCurrency(totalBills)} total</p>
+        </div>
         <Link href="/bills/new" className="btn-primary flex items-center gap-2 py-2 px-4 text-base">
           <Plus className="w-5 h-5" /> New
         </Link>
       </div>
+
+      {/* Total Due Banner — same style as purchases */}
+      {totalDue > 0 && (
+        <div className="bg-red-50 border-2 border-red-200 rounded-2xl px-4 py-3 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+          <p className="text-red-700 font-semibold text-sm">
+            Total bill dues: <span className="text-base">{formatCurrency(totalDue)}</span>
+          </p>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="card space-y-3">
@@ -115,8 +140,7 @@ export default function BillsPage() {
         </div>
         <button onClick={() => setDueOnly(!dueOnly)}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 font-semibold text-sm transition-all
-            ${dueOnly ? 'bg-red-500 border-red-500 text-white' : 'border-gray-200 text-gray-600 hover:border-red-300'}`}
-        >
+            ${dueOnly ? 'bg-red-500 border-red-500 text-white' : 'border-gray-200 text-gray-600 hover:border-red-300'}`}>
           <AlertCircle className="w-4 h-4" /> Due Bills Only
         </button>
       </div>
@@ -131,7 +155,6 @@ export default function BillsPage() {
           {bills.map(bill => (
             <div key={bill.id} className="card flex items-center gap-3 border-2 border-transparent hover:border-orange-100 transition-all py-4">
 
-              {/* Clickable bill info */}
               <Link href={`/bills/${bill.id}`} className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="font-bold text-gray-800 text-base">{bill.customer_name}</p>
@@ -147,7 +170,6 @@ export default function BillsPage() {
                 )}
               </Link>
 
-              {/* Amount + delete */}
               <div className="flex items-center gap-3 shrink-0">
                 <Link href={`/bills/${bill.id}`} className="text-right">
                   <p className="font-bold text-gray-800 text-lg">{formatCurrency(bill.total_amount)}</p>

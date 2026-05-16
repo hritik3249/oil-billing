@@ -1,9 +1,9 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { DashboardStats } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/constants'
-import { TrendingUp, TrendingDown, AlertCircle, ShoppingCart, ArrowRight, PlusCircle, ArrowUpDown } from 'lucide-react'
+import { TrendingUp, TrendingDown, AlertCircle, ShoppingCart, ArrowRight, PlusCircle, ArrowUpDown, RefreshCw } from 'lucide-react'
 import { DashboardSkeleton } from '@/components/ui/Skeletons'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
@@ -12,13 +12,61 @@ import {
 
 const PIE_COLORS = ['#111', '#555', '#888', '#aaa', '#333', '#666', '#999', '#ccc']
 
+// Append a timestamp so the browser never serves a cached response
+function dashboardUrl() {
+  return `/api/dashboard?t=${Date.now()}`
+}
+
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
-  useEffect(() => {
-    fetch('/api/dashboard').then(r => r.json()).then(d => { setStats(d); setLoading(false) })
+  const fetchStats = useCallback(async (showRefreshing = false) => {
+    if (showRefreshing) setRefreshing(true)
+    try {
+      const res = await fetch(dashboardUrl(), {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
+      })
+      const d = await res.json()
+      if (!d.error) {
+        setStats(d)
+        setLastUpdated(new Date())
+      }
+    } catch (e) {
+      console.error('Dashboard fetch error:', e)
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
   }, [])
+
+  // Initial load
+  useEffect(() => { fetchStats() }, [fetchStats])
+
+  // Refresh whenever the tab becomes visible again
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') fetchStats(true)
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [fetchStats])
+
+  // Refresh on window focus
+  useEffect(() => {
+    const handleFocus = () => fetchStats(true)
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [fetchStats])
+
+  // Polling every 30 seconds
+  useEffect(() => {
+    const id = setInterval(() => fetchStats(true), 30_000)
+    return () => clearInterval(id)
+  }, [fetchStats])
 
   if (loading) return <DashboardSkeleton />
   if (!stats) return null
@@ -28,10 +76,27 @@ export default function DashboardPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-        <Link href="/bills/new" className="btn-primary flex items-center gap-2 py-2 px-4 text-base">
-          <PlusCircle className="w-5 h-5" /> New Bill
-        </Link>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
+          {lastUpdated && (
+            <p className="text-xs text-gray-400 mt-0.5">
+              Updated {lastUpdated.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => fetchStats(true)}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 text-gray-500 hover:text-orange-500 bg-white border-2 border-gray-100 hover:border-orange-200 px-3 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Refreshing...' : 'Refresh'}
+          </button>
+          <Link href="/bills/new" className="btn-primary flex items-center gap-2 py-2 px-4 text-base">
+            <PlusCircle className="w-5 h-5" /> New Bill
+          </Link>
+        </div>
       </div>
 
       {/* ── STAT CARDS ── */}

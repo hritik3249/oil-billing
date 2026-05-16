@@ -1,11 +1,11 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Customer, BillItem } from '@/types'
 import { formatCurrency } from '@/lib/constants'
 import {
   Search, Plus, Trash2, Printer, Save,
-  User, MapPin, Car, CheckCircle, X, Hash, UserPlus
+  User, MapPin, Car, CheckCircle, X, Hash, UserPlus, RefreshCw
 } from 'lucide-react'
 
 const emptyItem = (): BillItem => ({
@@ -41,8 +41,11 @@ export default function NewBillPage() {
   const [saving, setSaving]         = useState(false)
 
   // Invoice number
-  const [invoiceNo, setInvoiceNo]           = useState('')
+  const [invoiceNo, setInvoiceNo]         = useState('')
   const [invoiceLoading, setInvoiceLoading] = useState(true)
+  const [invoiceError, setInvoiceError]   = useState(false)
+  // Track if user manually edited the invoice number so we don't overwrite it
+  const [invoiceManuallyEdited, setInvoiceManuallyEdited] = useState(false)
 
   // Toast & Print Preview
   const [toast, setToast]                       = useState('')
@@ -54,30 +57,48 @@ export default function NewBillPage() {
     setTimeout(() => setToast(''), 3500)
   }
 
-  // Fetch auto-incremented invoice number on mount
-  useEffect(() => {
-    fetch('/api/invoice-number')
-      .then(r => r.json())
-      .then(d => {
-        if (d.invoice_no) setInvoiceNo(d.invoice_no)
-        setInvoiceLoading(false)
+  // Always bust cache with timestamp param
+  const fetchInvoiceNumber = useCallback(async () => {
+    setInvoiceLoading(true)
+    setInvoiceError(false)
+    try {
+      // Timestamp param + no-cache headers = guaranteed fresh response
+      const res = await fetch(`/api/invoice-number?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
       })
-      .catch(() => {
-        const now = new Date()
-        const mm  = String(now.getMonth() + 1).padStart(2, '0')
-        setInvoiceNo(`ET-${mm}-1`)
-        setInvoiceLoading(false)
-      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const d = await res.json()
+      if (d.invoice_no) {
+        setInvoiceNo(d.invoice_no)
+        setInvoiceManuallyEdited(false)
+        setInvoiceError(false)
+      } else {
+        throw new Error(d.error || 'No invoice_no in response')
+      }
+    } catch (err) {
+      console.error('Invoice number fetch failed:', err)
+      setInvoiceError(true)
+    } finally {
+      setInvoiceLoading(false)
+    }
   }, [])
 
-  // Load all customers for instant dropdown
+  // Fetch on mount
   useEffect(() => {
-    fetch('/api/customers?search=').then(r => r.json()).then(d => {
+    fetchInvoiceNumber()
+  }, [fetchInvoiceNumber])
+
+  // Load all customers once
+  useEffect(() => {
+    fetch(`/api/customers?search=&t=${Date.now()}`, {
+      cache: 'no-store',
+    }).then(r => r.json()).then(d => {
       setAllCustomers(Array.isArray(d) ? d : [])
     })
   }, [])
 
-  // Filter customers as user types
+  // Filter customers as user types (local, no API call)
   useEffect(() => {
     const q = customerSearch.trim().toLowerCase()
     setCustomers(!q ? allCustomers : allCustomers.filter(c => c.name.toLowerCase().includes(q)))
@@ -108,7 +129,6 @@ export default function NewBillPage() {
     setShowAddCustomer(false)
   }
 
-  // Open "add new customer" form pre-filled with what was typed
   const openAddCustomer = () => {
     setNewCustName(customerSearch)
     setNewCustArea('')
@@ -116,7 +136,6 @@ export default function NewBillPage() {
     setShowAddCustomer(true)
   }
 
-  // Save new customer and auto-select them
   const saveNewCustomer = async () => {
     if (!newCustName.trim()) return
     setAddingCustomer(true)
@@ -128,7 +147,6 @@ export default function NewBillPage() {
     const created = await res.json()
     setAddingCustomer(false)
     if (created.id) {
-      // Add to local list and select immediately
       setAllCustomers(prev => [...prev, created])
       selectCustomer(created)
       setCustomerSearch(created.name)
@@ -186,6 +204,12 @@ export default function NewBillPage() {
       })
       const data = await res.json()
       if (data.id) return data.id
+      // If duplicate bill number, fetch a fresh one and tell user
+      if (data.error && data.error.includes('duplicate')) {
+        showToast('⚠️ Duplicate invoice number — fetching next available...')
+        await fetchInvoiceNumber()
+        return null
+      }
       showToast('❌ Error: ' + (data.error || 'Unknown error'))
       return null
     } catch {
@@ -276,18 +300,40 @@ export default function NewBillPage() {
         </label>
         <div className="flex gap-2 items-center">
           <input
-            className="input-field font-bold font-mono text-lg tracking-wide flex-1"
-            value={invoiceLoading ? 'Loading...' : invoiceNo}
-            onChange={e => setInvoiceNo(e.target.value)}
-            placeholder="ET-06-1"
+            className={`input-field font-bold font-mono text-lg tracking-wide flex-1 ${invoiceError ? 'border-red-300' : ''}`}
+            value={invoiceLoading ? '' : invoiceNo}
+            onChange={e => {
+              setInvoiceNo(e.target.value)
+              setInvoiceManuallyEdited(true)
+            }}
+            placeholder={invoiceLoading ? 'Fetching number...' : 'ET-05-1'}
+            disabled={invoiceLoading}
           />
-          <span className="text-xs text-gray-400 bg-gray-100 px-3 py-2.5 rounded-xl font-medium whitespace-nowrap">
-            Auto ✓
-          </span>
+          <button
+            onClick={fetchInvoiceNumber}
+            disabled={invoiceLoading}
+            title="Get latest invoice number"
+            className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold border transition-all whitespace-nowrap disabled:opacity-50
+              ${invoiceError
+                ? 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100'
+                : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-orange-50 hover:border-orange-200 hover:text-orange-600'
+              }`}
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${invoiceLoading ? 'animate-spin' : ''}`} />
+            {invoiceLoading ? 'Loading...' : invoiceError ? 'Retry' : 'Refresh'}
+          </button>
         </div>
-        <p className="text-xs text-gray-400 mt-1.5">
-          Format: ET-{String(new Date().getMonth()+1).padStart(2,'0')}-N · Resets each month · You can edit manually if needed
-        </p>
+        {invoiceError && (
+          <p className="text-xs text-red-500 mt-1.5">⚠️ Could not fetch auto number. Edit manually or click Retry.</p>
+        )}
+        {invoiceManuallyEdited && !invoiceError && (
+          <p className="text-xs text-amber-500 mt-1.5">✏️ Manually edited — click Refresh to reset to auto number.</p>
+        )}
+        {!invoiceError && !invoiceManuallyEdited && !invoiceLoading && (
+          <p className="text-xs text-gray-400 mt-1.5">
+            Auto-increments each bill · Resets each month · Edit manually if needed
+          </p>
+        )}
       </div>
 
       {/* Customer */}
@@ -316,7 +362,6 @@ export default function NewBillPage() {
             </button>
           )}
 
-          {/* Dropdown */}
           {showDropdown && !showAddCustomer && (
             <div className="absolute top-full left-0 right-0 bg-white border-2 border-orange-300 rounded-xl shadow-2xl z-50 mt-1 max-h-64 overflow-y-auto">
               {customers.length === 0 ? (
@@ -325,10 +370,8 @@ export default function NewBillPage() {
                     {customerSearch ? `No customer found for "${customerSearch}"` : 'No customers added yet.'}
                   </p>
                   {customerSearch && (
-                    <button
-                      onClick={openAddCustomer}
-                      className="flex items-center gap-2 mx-auto bg-orange-500 hover:bg-orange-600 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-all"
-                    >
+                    <button onClick={openAddCustomer}
+                      className="flex items-center gap-2 mx-auto bg-orange-500 hover:bg-orange-600 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-all">
                       <UserPlus className="w-4 h-4" /> Add &quot;{customerSearch}&quot; as new customer
                     </button>
                   )}
@@ -342,12 +385,9 @@ export default function NewBillPage() {
                       {c.area && <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5"><MapPin className="w-3 h-3" />{c.area}</p>}
                     </button>
                   ))}
-                  {/* Always show "add new" option at the bottom when typing */}
                   {customerSearch && (
-                    <button
-                      onClick={openAddCustomer}
-                      className="w-full text-left px-4 py-3 bg-orange-50 hover:bg-orange-100 border-t-2 border-orange-200 transition-colors flex items-center gap-2 text-orange-600 font-semibold text-sm"
-                    >
+                    <button onClick={openAddCustomer}
+                      className="w-full text-left px-4 py-3 bg-orange-50 hover:bg-orange-100 border-t-2 border-orange-200 transition-colors flex items-center gap-2 text-orange-600 font-semibold text-sm">
                       <UserPlus className="w-4 h-4" /> Add &quot;{customerSearch}&quot; as new customer
                     </button>
                   )}
@@ -357,7 +397,6 @@ export default function NewBillPage() {
           )}
         </div>
 
-        {/* Inline Add New Customer form */}
         {showAddCustomer && (
           <div className="mt-3 bg-blue-50 border-2 border-blue-200 rounded-xl p-4 space-y-3">
             <div className="flex items-center gap-2 mb-1">
@@ -366,43 +405,28 @@ export default function NewBillPage() {
             </div>
             <div>
               <label className="label text-xs">Customer Name *</label>
-              <input
-                className="input-field"
-                placeholder="Full name"
-                value={newCustName}
-                onChange={e => setNewCustName(e.target.value)}
-                autoFocus
-              />
+              <input className="input-field" placeholder="Full name" value={newCustName}
+                onChange={e => setNewCustName(e.target.value)} autoFocus />
             </div>
             <div>
               <label className="label text-xs">Area / Location</label>
-              <input
-                className="input-field"
-                placeholder="Village / Town / Area"
-                value={newCustArea}
-                onChange={e => setNewCustArea(e.target.value)}
-              />
+              <input className="input-field" placeholder="Village / Town / Area" value={newCustArea}
+                onChange={e => setNewCustArea(e.target.value)} />
             </div>
             <div className="flex gap-2 pt-1">
-              <button
-                onClick={saveNewCustomer}
-                disabled={addingCustomer || !newCustName.trim()}
-                className="btn-primary flex-1 flex items-center justify-center gap-2 py-3 disabled:opacity-50"
-              >
+              <button onClick={saveNewCustomer} disabled={addingCustomer || !newCustName.trim()}
+                className="btn-primary flex-1 flex items-center justify-center gap-2 py-3 disabled:opacity-50">
                 <CheckCircle className="w-4 h-4" />
                 {addingCustomer ? 'Adding...' : 'Add & Select'}
               </button>
-              <button
-                onClick={() => { setShowAddCustomer(false); setShowDropdown(false) }}
-                className="btn-secondary flex items-center gap-2 px-4"
-              >
+              <button onClick={() => { setShowAddCustomer(false); setShowDropdown(false) }}
+                className="btn-secondary flex items-center gap-2 px-4">
                 <X className="w-4 h-4" /> Cancel
               </button>
             </div>
           </div>
         )}
 
-        {/* Selected customer badge */}
         {selectedCustomer && (
           <div className="mt-3 bg-orange-50 border border-orange-200 rounded-xl p-3 flex flex-wrap gap-3 items-center">
             <span className="flex items-center gap-1.5 text-sm font-bold text-orange-700">
@@ -434,44 +458,32 @@ export default function NewBillPage() {
             <Plus className="w-4 h-4" /> Add Item
           </button>
         </div>
-
         <div className="space-y-3">
           {items.map((item, idx) => (
             <div key={idx} className="bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-2">
               <div>
                 <label className="label text-xs">Oil / Product Name</label>
-                <input
-                  className="input-field font-semibold"
+                <input className="input-field font-semibold"
                   placeholder="Type oil name e.g. Soya Refined Oil..."
                   value={item.oil_name}
                   onChange={e => updateItem(idx, 'oil_name', e.target.value)}
-                  autoComplete="off"
-                />
+                  autoComplete="off" />
               </div>
-
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="label text-xs">Qty (Jars)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    className="input-field text-center font-bold"
+                  <input type="number" min="1" className="input-field text-center font-bold"
                     value={item.quantity}
                     onChange={e => updateItem(idx, 'quantity', Math.max(1, Number(e.target.value)))}
-                    onFocus={e => e.target.select()}
-                  />
+                    onFocus={e => e.target.select()} />
                 </div>
                 <div>
                   <label className="label text-xs">Rate (₹/jar)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    className="input-field text-center"
+                  <input type="number" min="0" className="input-field text-center"
                     value={item.rate === 0 ? '' : item.rate}
                     placeholder="0"
                     onChange={e => updateItem(idx, 'rate', Number(e.target.value))}
-                    onFocus={e => e.target.select()}
-                  />
+                    onFocus={e => e.target.select()} />
                 </div>
                 <div>
                   <label className="label text-xs">Total</label>
@@ -480,7 +492,6 @@ export default function NewBillPage() {
                   </div>
                 </div>
               </div>
-
               {items.length > 1 && (
                 <button onClick={() => removeItem(idx)}
                   className="flex items-center gap-1 text-red-400 hover:text-red-600 text-xs font-semibold transition-colors">
@@ -503,11 +514,9 @@ export default function NewBillPage() {
           <div>
             <label className="label">Amount Paid (₹)</label>
             <input type="number" min="0" className="input-field text-lg font-bold"
-              placeholder="0"
-              value={amountPaid}
+              placeholder="0" value={amountPaid}
               onChange={e => setAmountPaid(e.target.value === '' ? '' : Number(e.target.value))}
-              onFocus={e => e.target.select()}
-            />
+              onFocus={e => e.target.select()} />
           </div>
           <div className={`flex items-center justify-between py-3 px-4 rounded-xl font-bold
             ${dueAmount > 0 ? 'bg-red-50 border-2 border-red-200' : 'bg-green-50 border-2 border-green-200'}`}>
