@@ -46,7 +46,7 @@ export default function BillDetailPage() {
       setTimeout(() => window.print(), 600)
   }, [bill, searchParams])
 
-  // ── PDF ──
+  // ── PDF ── (Page 1 = html2canvas screenshot, Page 2 = styled payment records)
   const handlePDF = async () => {
     if (!bill) return
     const invoiceEl = document.getElementById('print-invoice')
@@ -58,7 +58,7 @@ export default function BillDetailPage() {
       const html2canvas = (await import('html2canvas')).default
       const { default: jsPDF } = await import('jspdf')
 
-      // Temporarily make the invoice element visible at exact A5 px size
+      // Snapshot the styled Invoice component at exact A5 pixel size
       const prevStyle = invoiceEl.getAttribute('style') || ''
       invoiceEl.style.width    = '559px'   // 148mm @ 96dpi
       invoiceEl.style.height   = '794px'   // 210mm @ 96dpi
@@ -66,93 +66,187 @@ export default function BillDetailPage() {
       invoiceEl.style.position = 'relative'
 
       const canvas = await html2canvas(invoiceEl, {
-        scale:           3,          // 3× = 1677×2382px → crisp
-        useCORS:         true,
+        scale: 3,
+        useCORS: true,
         backgroundColor: '#ffffff',
-        logging:         false,
-        width:           559,
-        height:          794,
+        logging: false,
+        width: 559,
+        height: 794,
         foreignObjectRendering: false,
       })
 
-      // Restore original styles
       invoiceEl.setAttribute('style', prevStyle)
 
       const imgData = canvas.toDataURL('image/png', 1.0)
       const doc = new jsPDF({ unit: 'mm', format: 'a5', orientation: 'portrait' })
 
-      // Page 1 — invoice screenshot (exact match to print)
+      // ── PAGE 1: screenshot of Invoice component ──
       doc.addImage(imgData, 'PNG', 0, 0, 148, 210)
 
-      // Page 2 — payment records (only if payments exist)
+      // ── PAGE 2: payment records (only if payments exist) ──
       const payments = bill.payments || []
       if (payments.length > 0) {
         doc.addPage('a5', 'portrait')
-        const m = 12
-        let y = 16
 
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(17)
-        doc.text('EMTA TRADERS', m, y); y += 7
+        const W = 148   // page width mm
+        const m = 10    // margin
+        const innerW = W - m * 2
+        let y = 0
 
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(100)
-        doc.text('65/J, Ram Krishna Road, Rishra, Hooghly - 712248  |  Mob: 7003868243', m, y); y += 5
-        doc.text('GST: 19AGMPR8914Q1Z7', m, y); y += 7
+        // ── TOP ORANGE BANNER ──
+        doc.setFillColor(249, 115, 22)   // #f97316
+        doc.rect(0, 0, W, 22, 'F')
 
-        doc.setLineWidth(0.6); doc.setDrawColor(17)
-        doc.line(m, y, 148 - m, y); y += 7
+        // Logo droplets hint — two small filled circles in white
+        doc.setFillColor(255, 255, 255)
+        doc.circle(m + 4, 11, 3.5, 'F')
+        doc.setFillColor(255, 255, 255)
+        doc.circle(m + 10, 11, 2.5, 'F')
 
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(17)
-        doc.text('Payment Records', m, y); y += 5
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(80)
-        doc.text(`Invoice: ${bill.bill_number}   |   Customer: ${bill.customer_name}`, m, y); y += 9
+        // Company name
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(13)
+        doc.setTextColor(255, 255, 255)
+        doc.text('EMTA TRADERS', m + 16, 10)
 
-        // Table header
-        doc.setLineWidth(0.5); doc.setDrawColor(17)
-        doc.line(m, y - 1, 148 - m, y - 1)
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(17)
-        doc.text('#',      m,       y + 4)
-        doc.text('Date',   m + 8,   y + 4)
-        doc.text('Note',   m + 40,  y + 4)
-        doc.text('Amount', 148 - m, y + 4, { align: 'right' })
-        y += 7
-        doc.line(m, y, 148 - m, y); y += 6
+        // Sub-line
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(7)
+        doc.setTextColor(255, 230, 200)
+        doc.text('Payment Record', m + 16, 16)
 
-        // Rows
+        // "INVOICE" label right
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(16)
+        doc.setTextColor(255, 255, 255)
+        doc.text('INVOICE', W - m, 14, { align: 'right' })
+
+        y = 22
+
+        // ── YELLOW DETAILS BAR ──
+        doc.setFillColor(255, 251, 235)  // #fffbeb
+        doc.rect(0, y, W, 10, 'F')
+        doc.setDrawColor(249, 115, 22)
+        doc.setLineWidth(0.5)
+        doc.line(0, y + 10, W, y + 10)
+
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(7)
+        doc.setTextColor(124, 60, 0)     // #7c3c00
+        doc.text(
+          '65/J, Ram Krishna Road, Rishra, Hooghly - 712248  |  Mob: 7003868243  |  GST: 19AGMPR8914Q1Z7',
+          W / 2, y + 6.5,
+          { align: 'center' }
+        )
+
+        y += 10
+
+        // ── BILL INFO BOX ──
+        y += 6
+        doc.setFillColor(255, 247, 237)  // #fff7ed
+        doc.setDrawColor(254, 215, 170)  // #fed7aa
+        doc.setLineWidth(0.4)
+        doc.roundedRect(m, y, innerW, 16, 2, 2, 'FD')
+
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(9)
+        doc.setTextColor(194, 65, 12)    // #c2410c
+        doc.text(bill.customer_name, m + 4, y + 7)
+
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(8)
+        doc.setTextColor(124, 60, 0)
+        doc.text(`Invoice: ${bill.bill_number}   |   Date: ${formatDate(bill.date)}`, m + 4, y + 13)
+
+        y += 16 + 6
+
+        // ── TABLE HEADER ──
+        doc.setFillColor(249, 115, 22)   // #f97316
+        doc.rect(m, y, innerW, 9, 'F')
+
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(8)
+        doc.setTextColor(255, 255, 255)
+        doc.text('#',       m + 3,       y + 6)
+        doc.text('Date',    m + 12,      y + 6)
+        doc.text('Note',    m + 48,      y + 6)
+        doc.text('Amount',  W - m - 2,   y + 6, { align: 'right' })
+
+        y += 9
+
+        // ── TABLE ROWS (alternating white / yellow) ──
         payments.forEach((p, i) => {
-          doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(60)
-          doc.text(String(i + 1),      m,       y)
-          doc.text(formatDate(p.date), m + 8,   y)
-          doc.text(p.note || '-',      m + 40,  y, { maxWidth: 46 })
-          doc.setFont('helvetica', 'bold'); doc.setTextColor(17)
-          doc.text(`Rs.${p.amount}`,   148 - m, y, { align: 'right' })
-          doc.setDrawColor(220); doc.setLineWidth(0.2)
-          y += 6; doc.line(m, y, 148 - m, y); y += 4
+          const rowH = 9
+          // alternating bg
+          if (i % 2 === 0) {
+            doc.setFillColor(255, 255, 255)
+          } else {
+            doc.setFillColor(255, 247, 237)  // #fff7ed
+          }
+          doc.rect(m, y, innerW, rowH, 'F')
+
+          // bottom border
+          doc.setDrawColor(254, 215, 170)   // #fed7aa
+          doc.setLineWidth(0.2)
+          doc.line(m, y + rowH, m + innerW, y + rowH)
+
+          // row text
+          doc.setFont('helvetica', 'normal')
+          doc.setFontSize(8)
+          doc.setTextColor(51, 51, 51)
+          doc.text(String(i + 1),          m + 3,      y + 6)
+          doc.text(formatDate(p.date),     m + 12,     y + 6)
+
+          const noteText = p.note || '-'
+          const clipped = noteText.length > 28 ? noteText.substring(0, 25) + '...' : noteText
+          doc.text(clipped,                m + 48,     y + 6)
+
+          doc.setFont('helvetica', 'bold')
+          doc.setTextColor(194, 65, 12)    // #c2410c
+          doc.text(`Rs.${p.amount}`,       W - m - 2,  y + 6, { align: 'right' })
+
+          y += rowH
         })
 
         y += 4
-        doc.setLineWidth(0.5); doc.setDrawColor(17)
-        doc.line(m, y, 148 - m, y); y += 7
 
-        // Summary
-        const rows = [
-          { label: 'Total Bill Amount', val: bill.total_amount, bold: false },
-          { label: 'Total Paid',        val: bill.amount_paid,  bold: false },
-          { label: 'Balance Due',       val: bill.due_amount,   bold: true  },
+        // ── SUMMARY ROWS ──
+        const summaryRows = [
+          { label: 'Total Bill Amount', val: bill.total_amount, highlight: false },
+          { label: 'Total Paid',        val: bill.amount_paid,  highlight: false },
         ]
-        rows.forEach(({ label, val, bold }) => {
-          doc.setFont('helvetica', bold ? 'bold' : 'normal')
-          doc.setFontSize(bold ? 11 : 9)
-          doc.setTextColor(bold ? 17 : 80)
-          doc.text(label,           m,       y)
-          doc.setFont('helvetica', 'bold'); doc.setTextColor(17)
-          doc.text(`Rs.${val}`,     148 - m, y, { align: 'right' })
-          y += 7
+
+        summaryRows.forEach(({ label, val }) => {
+          doc.setFont('helvetica', 'normal')
+          doc.setFontSize(9)
+          doc.setTextColor(124, 60, 0)
+          doc.text(label,         m + 3,     y + 6)
+          doc.setFont('helvetica', 'bold')
+          doc.setTextColor(51, 51, 51)
+          doc.text(`Rs.${val}`,   W - m - 2, y + 6, { align: 'right' })
+          y += 9
         })
 
-        doc.setLineWidth(0.5); doc.setDrawColor(17)
-        doc.line(m, 200, 148 - m, 200)
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(120)
-        doc.text('EMTA TRADERS  —  Mob: 7003868243  —  GST: 19AGMPR8914Q1Z7', 74, 206, { align: 'center' })
+        // Balance Due — orange box
+        y += 2
+        doc.setFillColor(249, 115, 22)
+        doc.roundedRect(m, y, innerW, 11, 2, 2, 'F')
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(10)
+        doc.setTextColor(255, 255, 255)
+        doc.text('Balance Due',  m + 4,    y + 7.5)
+        doc.text(`Rs.${bill.due_amount}`, W - m - 2, y + 7.5, { align: 'right' })
+
+        y += 11
+
+        // ── BOTTOM BANNER ──
+        doc.setFillColor(249, 115, 22)
+        doc.rect(0, 210 - 16, W, 16, 'F')
+
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(14)
+        doc.setTextColor(255, 255, 255)
+        doc.text('THANK YOU !', W / 2, 210 - 5, { align: 'center' })
       }
 
       doc.save(`${bill.bill_number}.pdf`)
