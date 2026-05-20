@@ -1,16 +1,29 @@
-import type { Metadata } from 'next'
-import './globals.css'
+import type { Metadata } from "next";
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: 'Oil Billing System',
-  description: 'Professional oil business billing & management',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
-}
+  title: "Oil Billing App",
+  description: "Oil billing and customer management app",
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+  manifest: "/manifest.webmanifest",
+
+  icons: {
+    icon: "/icon.png",
+    apple: "/apple-icon.png",
+    shortcut: "/favicon.ico",
+  },
+
+  themeColor: "#ff7a1a",
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
-      <body className="bg-amber-50 min-h-screen">{children}</body>
+      <body>{children}</body>
     </html>
-  )
+  );
 }
