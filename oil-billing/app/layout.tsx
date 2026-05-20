@@ -1,18 +1,19 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Oil Billing App",
-  description: "Oil billing and customer management app",
+  description: "Oil billing app",
 
   manifest: "/manifest.webmanifest",
 
   icons: {
-    icon: "/icon.png",
+    icon: "/favicon.ico",
     apple: "/apple-icon.png",
-    shortcut: "/favicon.ico",
   },
+};
 
+export const viewport: Viewport = {
   themeColor: "#ff7a1a",
 };
 
