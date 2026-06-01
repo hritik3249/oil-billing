@@ -68,6 +68,34 @@ export async function PUT(req: NextRequest) {
   const body = await req.json()
   const db = supabaseAdmin()
 
+  if (body.action === 'edit_purchase') {
+    const { data: existing } = await db.from('purchases')
+      .select('payments, amount_paid').eq('id', body.id).single()
+
+    const payments: Payment[] = existing?.payments || []
+    const totalPaid = payments.length > 0
+      ? payments.reduce((s, p) => s + p.amount, 0)
+      : Number(existing?.amount_paid || 0)
+    const amount = Number(body.amount || 0)
+    const due = Math.max(0, amount - totalPaid)
+
+    const { data, error } = await db.from('purchases')
+      .update({
+        category:    body.category,
+        description: body.description || '',
+        supplier:    body.supplier || '',
+        amount,
+        amount_paid: totalPaid,
+        due_amount:  due,
+        date:        body.date,
+        notes:       body.notes || '',
+      })
+      .eq('id', body.id).select().single()
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ...data, payments })
+  }
+
   if (body.action === 'add_payment') {
     const { data: existing } = await db.from('purchases')
       .select('payments, amount').eq('id', body.id).single()
