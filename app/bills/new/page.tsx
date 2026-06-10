@@ -10,7 +10,7 @@ import {
 
 const emptyItem = (): BillItem => ({
   oil_type_id: OIL_TYPES[0].id,
-  oil_name:    OIL_TYPES[0].name,
+  oil_name:    '',
   quantity:    1,
   rate:        0,
   total:       0,
@@ -170,15 +170,9 @@ export default function NewBillPage() {
     }))
   }
 
-  // Switching oil type prefills the product name (still editable); rates are always manual
+  // Oil type only drives stock tracking; the product name is always typed manually
   const selectOilType = (idx: number, id: string) => {
-    setItems(prev => prev.map((item, i) => {
-      if (i !== idx) return item
-      if (id === 'custom') return { ...item, oil_type_id: 'custom', oil_name: '' }
-      const oil = OIL_TYPES.find(o => o.id === id)
-      if (!oil) return item
-      return { ...item, oil_type_id: oil.id, oil_name: oil.name }
-    }))
+    setItems(prev => prev.map((item, i) => i === idx ? { ...item, oil_type_id: id } : item))
   }
 
   const addItem    = () => setItems(prev => [...prev, emptyItem()])
