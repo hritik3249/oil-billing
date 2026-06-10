@@ -1,9 +1,6 @@
--- Migration: bill number uniqueness + query indexes
--- Run once in Supabase SQL Editor.
-
--- Two devices billing at the same moment can no longer create the same number;
--- the New Bill form already refetches the next number on a duplicate error.
-CREATE UNIQUE INDEX IF NOT EXISTS uniq_bills_bill_number ON bills (bill_number);
+-- Migration: query indexes (applied 2026-06-10)
+-- Note: bill_number uniqueness already exists via the original schema's
+-- bills_bill_number_key constraint — no extra index needed.
 
 -- Indexes for the most common filters (cheap now, prevents slowdown as data grows)
 CREATE INDEX IF NOT EXISTS idx_bills_date        ON bills (date);
