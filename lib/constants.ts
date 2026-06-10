@@ -1,10 +1,11 @@
 import { OilType } from '@/types'
 
+// Rates are intentionally 0 — every bill uses a custom rate typed at billing time
 export const OIL_TYPES: OilType[] = [
-  { id: 'soya_refined', name: 'Soya Refined Oil', rate: 150, unit: 'jar' },
-  { id: 'palm_oil',     name: 'Palm Oil',          rate: 130, unit: 'jar' },
-  { id: 'mustard_oil',  name: 'Mustard Oil',       rate: 170, unit: 'jar' },
-  { id: 'rice_oil',     name: 'Rice Oil',           rate: 160, unit: 'jar' },
+  { id: 'soya_refined', name: 'Soya Refined Oil', rate: 0, unit: 'jar' },
+  { id: 'palm_oil',     name: 'Palm Oil',          rate: 0, unit: 'jar' },
+  { id: 'mustard_oil',  name: 'Mustard Oil',       rate: 0, unit: 'jar' },
+  { id: 'rice_oil',     name: 'Rice Oil',           rate: 0, unit: 'jar' },
 ]
 
 export const getOilById = (id: string) => OIL_TYPES.find(o => o.id === id)

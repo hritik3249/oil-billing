@@ -12,8 +12,8 @@ const emptyItem = (): BillItem => ({
   oil_type_id: OIL_TYPES[0].id,
   oil_name:    OIL_TYPES[0].name,
   quantity:    1,
-  rate:        OIL_TYPES[0].rate,
-  total:       OIL_TYPES[0].rate,
+  rate:        0,
+  total:       0,
 })
 
 export default function NewBillPage() {
@@ -170,14 +170,14 @@ export default function NewBillPage() {
     }))
   }
 
-  // Switching oil type sets the name and default rate; "custom" frees the name field
+  // Switching oil type prefills the product name (still editable); rates are always manual
   const selectOilType = (idx: number, id: string) => {
     setItems(prev => prev.map((item, i) => {
       if (i !== idx) return item
-      if (id === 'custom') return { ...item, oil_type_id: 'custom', oil_name: '', rate: 0, total: 0 }
+      if (id === 'custom') return { ...item, oil_type_id: 'custom', oil_name: '' }
       const oil = OIL_TYPES.find(o => o.id === id)
       if (!oil) return item
-      return { ...item, oil_type_id: oil.id, oil_name: oil.name, rate: oil.rate, total: oil.rate * item.quantity }
+      return { ...item, oil_type_id: oil.id, oil_name: oil.name }
     }))
   }
 
@@ -472,25 +472,25 @@ export default function NewBillPage() {
         <div className="space-y-3">
           {items.map((item, idx) => (
             <div key={idx} className="bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-2">
-              <div>
-                <label className="label text-xs">Oil Type</label>
-                <select className="input-field font-semibold"
-                  value={item.oil_type_id}
-                  onChange={e => selectOilType(idx, e.target.value)}>
-                  {OIL_TYPES.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-                  <option value="custom">Other / Custom...</option>
-                </select>
-              </div>
-              {item.oil_type_id === 'custom' && (
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="label text-xs">Oil Type</label>
+                  <select className="input-field font-semibold"
+                    value={item.oil_type_id}
+                    onChange={e => selectOilType(idx, e.target.value)}>
+                    {OIL_TYPES.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                    <option value="custom">Other / Custom...</option>
+                  </select>
+                </div>
                 <div>
                   <label className="label text-xs">Product Name</label>
                   <input className="input-field font-semibold"
-                    placeholder="Type product name..."
+                    placeholder="Name shown on bill..."
                     value={item.oil_name}
                     onChange={e => updateItem(idx, 'oil_name', e.target.value)}
                     autoComplete="off" />
                 </div>
-              )}
+              </div>
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="label text-xs">Qty (Jars)</label>
