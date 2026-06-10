@@ -1,13 +1,15 @@
 'use client'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, Users, FileText, PlusCircle, LogOut, Droplets, Menu, X, ShoppingCart, UserCog, BarChart2 } from 'lucide-react'
+import { LayoutDashboard, Users, FileText, PlusCircle, LogOut, Droplets, Menu, X, ShoppingCart, UserCog, BarChart2, IndianRupee, Package } from 'lucide-react'
 import { useState } from 'react'
 
 const navItems = [
   { href: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
   { href: '/bills',      label: 'Bills',       icon: FileText },
   { href: '/bills/new',  label: 'New Bill',    icon: PlusCircle },
+  { href: '/dues',       label: 'Dues',        icon: IndianRupee },
+  { href: '/stock',      label: 'Stock',       icon: Package },
   { href: '/purchases',  label: 'Purchases',   icon: ShoppingCart },
   { href: '/employees',  label: 'Employees',   icon: UserCog },
   { href: '/customers',  label: 'Customers',   icon: Users },
@@ -18,8 +20,8 @@ const bottomNav = [
   { href: '/dashboard',  label: 'Home',      icon: LayoutDashboard },
   { href: '/bills',      label: 'Bills',     icon: FileText },
   { href: '/bills/new',  label: 'New Bill',  icon: PlusCircle },
+  { href: '/dues',       label: 'Dues',      icon: IndianRupee },
   { href: '/purchases',  label: 'Purchases', icon: ShoppingCart },
-  { href: '/pnl',        label: 'P&L',       icon: BarChart2 },
 ]
 
 export default function Navbar() {
