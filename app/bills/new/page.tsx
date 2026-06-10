@@ -2,18 +2,18 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Customer, BillItem } from '@/types'
-import { formatCurrency } from '@/lib/constants'
+import { formatCurrency, OIL_TYPES } from '@/lib/constants'
 import {
   Search, Plus, Trash2, Printer, Save,
   User, MapPin, Car, CheckCircle, X, Hash, UserPlus, RefreshCw
 } from 'lucide-react'
 
 const emptyItem = (): BillItem => ({
-  oil_type_id: 'custom',
-  oil_name:    '',
+  oil_type_id: OIL_TYPES[0].id,
+  oil_name:    OIL_TYPES[0].name,
   quantity:    1,
-  rate:        0,
-  total:       0,
+  rate:        OIL_TYPES[0].rate,
+  total:       OIL_TYPES[0].rate,
 })
 
 export default function NewBillPage() {
@@ -167,6 +167,17 @@ export default function NewBillPage() {
         updated.total = rate * qty
       }
       return updated
+    }))
+  }
+
+  // Switching oil type sets the name and default rate; "custom" frees the name field
+  const selectOilType = (idx: number, id: string) => {
+    setItems(prev => prev.map((item, i) => {
+      if (i !== idx) return item
+      if (id === 'custom') return { ...item, oil_type_id: 'custom', oil_name: '', rate: 0, total: 0 }
+      const oil = OIL_TYPES.find(o => o.id === id)
+      if (!oil) return item
+      return { ...item, oil_type_id: oil.id, oil_name: oil.name, rate: oil.rate, total: oil.rate * item.quantity }
     }))
   }
 
@@ -462,13 +473,24 @@ export default function NewBillPage() {
           {items.map((item, idx) => (
             <div key={idx} className="bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-2">
               <div>
-                <label className="label text-xs">Oil / Product Name</label>
-                <input className="input-field font-semibold"
-                  placeholder="Type oil name e.g. Soya Refined Oil..."
-                  value={item.oil_name}
-                  onChange={e => updateItem(idx, 'oil_name', e.target.value)}
-                  autoComplete="off" />
+                <label className="label text-xs">Oil Type</label>
+                <select className="input-field font-semibold"
+                  value={item.oil_type_id}
+                  onChange={e => selectOilType(idx, e.target.value)}>
+                  {OIL_TYPES.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                  <option value="custom">Other / Custom...</option>
+                </select>
               </div>
+              {item.oil_type_id === 'custom' && (
+                <div>
+                  <label className="label text-xs">Product Name</label>
+                  <input className="input-field font-semibold"
+                    placeholder="Type product name..."
+                    value={item.oil_name}
+                    onChange={e => updateItem(idx, 'oil_name', e.target.value)}
+                    autoComplete="off" />
+                </div>
+              )}
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="label text-xs">Qty (Jars)</label>

@@ -33,9 +33,15 @@ export async function GET(req: NextRequest) {
     if (!s.tracking_since || e.date < s.tracking_since) s.tracking_since = e.date
   }
 
+  // Fallback: bills created before the oil-type dropdown existed have
+  // oil_type_id 'custom', so also match items by oil name (case-insensitive)
+  const byName = new Map<string, OilStock>()
+  Array.from(byOil.values()).forEach(s => byName.set(s.oil_name.trim().toLowerCase(), s))
+
   for (const bill of bills || []) {
     for (const item of (bill.items || []) as BillItem[]) {
       const s = byOil.get(item.oil_type_id)
+        ?? byName.get((item.oil_name || '').trim().toLowerCase())
       if (s && s.tracking_since && bill.date >= s.tracking_since) {
         s.sold += Number(item.quantity)
       }
