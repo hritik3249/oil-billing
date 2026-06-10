@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { checkAuth } from '@/lib/auth-server'
+import { computeStock } from '@/lib/stock'
 
 export async function GET(req: NextRequest) {
   if (!(await checkAuth(req)))
@@ -29,6 +30,8 @@ export async function GET(req: NextRequest) {
       .limit(6),
     db.from('salary_records').select('due_amount').gt('due_amount', 0),
   ])
+
+  const { stock } = await computeStock(db).catch(() => ({ stock: [] }))
 
   const total_sales     = allBills?.reduce((s, b) => s + b.total_amount, 0) ?? 0
   const total_purchases = allPurchases?.reduce((s, p) => s + p.amount, 0) ?? 0
@@ -69,6 +72,7 @@ export async function GET(req: NextRequest) {
     oil_wise_sales, category_wise_purchases,
     daily_chart,
     recent_bills: recentBills || [],
+    stock,
   }
 
   // Explicitly tell every layer (Vercel Edge, CDN, browser) not to cache this

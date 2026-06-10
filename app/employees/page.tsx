@@ -168,7 +168,7 @@ export default function EmployeesPage() {
             </div>
             <div>
               <label className="label">Monthly Salary (₹)</label>
-              <input type="number" className="input-field" placeholder="0"
+              <input type="number" inputMode="decimal" className="input-field" placeholder="0"
                 value={form.monthly_salary} onChange={e => setForm(f => ({ ...f, monthly_salary: e.target.value }))}
                 onFocus={e => e.target.select()} />
             </div>
@@ -277,7 +277,7 @@ export default function EmployeesPage() {
                             <div className="grid grid-cols-2 gap-2">
                               <div>
                                 <label className="label text-xs">Amount (₹) *</label>
-                                <input type="number" className="input-field font-bold" placeholder="0"
+                                <input type="number" inputMode="decimal" className="input-field font-bold" placeholder="0"
                                   value={payAmount} onChange={e => setPayAmount(e.target.value === '' ? '' : Number(e.target.value))}
                                   onFocus={e => e.target.select()} autoFocus />
                               </div>

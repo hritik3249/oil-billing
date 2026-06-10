@@ -1,8 +1,10 @@
 'use client'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
+import useSWR from 'swr'
 import Link from 'next/link'
 import { Bill, Customer } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/constants'
+import { fetcher } from '@/lib/fetcher'
 import { TableSkeleton } from '@/components/ui/Skeletons'
 import { AlertCircle, MapPin, MessageCircle, PhoneCall, ChevronRight, IndianRupee } from 'lucide-react'
 
@@ -22,23 +24,15 @@ const waNumber = (phone: string) => {
 }
 
 export default function DuesPage() {
-  const [bills, setBills]         = useState<Bill[]>([])
-  const [customers, setCustomers] = useState<Customer[]>([])
-  const [loading, setLoading]     = useState(true)
-  const [error, setError]         = useState('')
+  const { data: billData, error: billErr, isLoading: billsLoading } =
+    useSWR<Bill[]>('/api/bills?due_only=true', fetcher, { revalidateOnFocus: true, keepPreviousData: true })
+  const { data: custData, error: custErr, isLoading: custLoading } =
+    useSWR<Customer[]>('/api/customers', fetcher, { revalidateOnFocus: true, keepPreviousData: true })
 
-  useEffect(() => {
-    Promise.all([
-      fetch(`/api/bills?due_only=true&t=${Date.now()}`, { cache: 'no-store' }).then(r => r.json()),
-      fetch(`/api/customers?t=${Date.now()}`, { cache: 'no-store' }).then(r => r.json()),
-    ]).then(([billList, custList]) => {
-      setBills(Array.isArray(billList) ? billList : [])
-      setCustomers(Array.isArray(custList) ? custList : [])
-    }).catch(e => {
-      console.error('Dues fetch error:', e)
-      setError('Could not load dues. Please try again.')
-    }).finally(() => setLoading(false))
-  }, [])
+  const bills     = Array.isArray(billData) ? billData : []
+  const customers = Array.isArray(custData) ? custData : []
+  const loading   = billsLoading || custLoading
+  const error     = (billErr || custErr) ? 'Could not load dues. Please try again.' : ''
 
   const groups = useMemo<DueGroup[]>(() => {
     const phoneById = new Map(customers.map(c => [c.id, c.phone || '']))

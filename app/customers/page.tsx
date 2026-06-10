@@ -1,16 +1,16 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
+import useSWR from 'swr'
 import Link from 'next/link'
 import { Customer } from '@/types'
+import { fetcher } from '@/lib/fetcher'
 import { Search, Plus, Edit2, Trash2, X, Check, MapPin, CheckCircle, Phone, ChevronRight } from 'lucide-react'
 import { TableSkeleton } from '@/components/ui/Skeletons'
 
 type Mode = 'list' | 'add' | 'edit'
 
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState<Customer[]>([])
   const [search, setSearch]       = useState('')
-  const [loading, setLoading]     = useState(true)
   const [mode, setMode]           = useState<Mode>('list')
   const [selected, setSelected]   = useState<Customer | null>(null)
   const [form, setForm]           = useState({ name: '', area: '', phone: '' })
@@ -22,20 +22,19 @@ export default function CustomersPage() {
     setTimeout(() => setToast(''), 3000)
   }
 
-  const fetchCustomers = useCallback(async (q = search) => {
-    setLoading(true)
-    const res = await fetch(`/api/customers?search=${encodeURIComponent(q)}`)
-    const data = await res.json()
-    setCustomers(Array.isArray(data) ? data : [])
-    setLoading(false)
-  }, [search])
-
-  useEffect(() => { fetchCustomers('') }, [])
-
+  // Debounced search term drives the SWR key
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   useEffect(() => {
-    const t = setTimeout(() => fetchCustomers(search), 300)
+    const t = setTimeout(() => setDebouncedSearch(search), 300)
     return () => clearTimeout(t)
   }, [search])
+
+  const { data, isLoading: loading, mutate } = useSWR<Customer[]>(
+    `/api/customers?search=${encodeURIComponent(debouncedSearch)}`, fetcher,
+    { revalidateOnFocus: true, keepPreviousData: true }
+  )
+  const customers = Array.isArray(data) ? data : []
+  const fetchCustomers = (_q?: string) => mutate()
 
   const openAdd  = () => { setForm({ name: '', area: '', phone: '' }); setMode('add') }
   const openEdit = (c: Customer) => { setSelected(c); setForm({ name: c.name, area: c.area, phone: c.phone || '' }); setMode('edit') }
@@ -103,7 +102,7 @@ export default function CustomersPage() {
             </div>
             <div>
               <label className="label">Phone Number</label>
-              <input className="input-field" type="tel" placeholder="10-digit mobile number" value={form.phone}
+              <input className="input-field" type="tel" inputMode="tel" placeholder="10-digit mobile number" value={form.phone}
                 onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
             </div>
             <div className="flex gap-3 pt-1">

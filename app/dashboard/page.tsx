@@ -1,9 +1,11 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useState } from 'react'
+import useSWR from 'swr'
 import Link from 'next/link'
 import { DashboardStats } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/constants'
-import { TrendingUp, TrendingDown, AlertCircle, ShoppingCart, ArrowRight, PlusCircle, ArrowUpDown, RefreshCw } from 'lucide-react'
+import { fetcher } from '@/lib/fetcher'
+import { TrendingUp, TrendingDown, AlertCircle, ShoppingCart, ArrowRight, PlusCircle, ArrowUpDown, RefreshCw, Package, AlertTriangle } from 'lucide-react'
 import { DashboardSkeleton } from '@/components/ui/Skeletons'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
@@ -11,64 +13,24 @@ import {
 } from 'recharts'
 
 const PIE_COLORS = ['#111', '#555', '#888', '#aaa', '#333', '#666', '#999', '#ccc']
-
-// Append a timestamp so the browser never serves a cached response
-function dashboardUrl() {
-  return `/api/dashboard?t=${Date.now()}`
-}
+const LOW_STOCK_THRESHOLD = 10
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
-  const fetchStats = useCallback(async (showRefreshing = false) => {
-    if (showRefreshing) setRefreshing(true)
-    try {
-      const res = await fetch(dashboardUrl(), {
-        cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
-      })
-      const d = await res.json()
-      if (!d.error) {
-        setStats(d)
-        setLastUpdated(new Date())
-      }
-    } catch (e) {
-      console.error('Dashboard fetch error:', e)
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
+  // SWR: instant render from cache, background refresh on focus + every 30s
+  const { data: stats, isLoading, isValidating, mutate } = useSWR<DashboardStats>(
+    '/api/dashboard', fetcher,
+    {
+      refreshInterval: 30_000,
+      revalidateOnFocus: true,
+      keepPreviousData: true,
+      onSuccess: () => setLastUpdated(new Date()),
     }
-  }, [])
+  )
+  const refreshing = isValidating && !isLoading
 
-  // Initial load
-  useEffect(() => { fetchStats() }, [fetchStats])
-
-  // Refresh whenever the tab becomes visible again
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') fetchStats(true)
-    }
-    document.addEventListener('visibilitychange', handleVisibility)
-    return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [fetchStats])
-
-  // Refresh on window focus
-  useEffect(() => {
-    const handleFocus = () => fetchStats(true)
-    window.addEventListener('focus', handleFocus)
-    return () => window.removeEventListener('focus', handleFocus)
-  }, [fetchStats])
-
-  // Polling every 30 seconds
-  useEffect(() => {
-    const id = setInterval(() => fetchStats(true), 30_000)
-    return () => clearInterval(id)
-  }, [fetchStats])
-
-  if (loading) return <DashboardSkeleton />
+  if (isLoading) return <DashboardSkeleton />
   if (!stats) return null
 
   const profitPositive = stats.gross_profit >= 0
@@ -86,7 +48,7 @@ export default function DashboardPage() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => fetchStats(true)}
+            onClick={() => mutate()}
             disabled={refreshing}
             className="flex items-center gap-1.5 text-gray-500 hover:text-orange-500 bg-white border-2 border-gray-100 hover:border-orange-200 px-3 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
           >
@@ -127,13 +89,14 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        <div className="card border-2 border-amber-100 bg-amber-50">
+        <Link href="/dues" className="card border-2 border-amber-100 bg-amber-50 hover:border-amber-300 transition-all">
           <div className="flex items-center gap-2 mb-1">
             <AlertCircle className="w-5 h-5 text-amber-500" />
             <p className="text-xs text-gray-500 font-medium">Customer Dues</p>
+            <ArrowRight className="w-3.5 h-3.5 text-amber-400 ml-auto" />
           </div>
           <p className="text-xl font-bold text-red-600">{formatCurrency(stats.pending_dues)}</p>
-        </div>
+        </Link>
 
         <div className="card border-2 border-purple-100 bg-purple-50">
           <div className="flex items-center gap-2 mb-1">
@@ -143,6 +106,39 @@ export default function DashboardPage() {
           <p className="text-xl font-bold text-purple-700">{formatCurrency(stats.purchase_dues)}</p>
         </div>
       </div>
+
+      {/* ── CURRENT STOCK ── */}
+      {stats.stock && stats.stock.length > 0 && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-bold text-gray-700 flex items-center gap-2">
+              <Package className="w-4 h-4" /> Current Stock
+            </h2>
+            <Link href="/stock" className="text-orange-500 text-sm font-semibold flex items-center gap-1">
+              Manage <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {stats.stock.map(s => {
+              const low = s.balance < LOW_STOCK_THRESHOLD
+              return (
+                <Link key={s.oil_type_id} href="/stock"
+                  className={`rounded-xl border p-3 text-center transition-all ${low ? 'border-red-200 bg-red-50' : 'border-green-100 bg-green-50'}`}>
+                  <p className="text-xs text-gray-500 font-medium truncate">{s.oil_name}</p>
+                  <p className={`text-lg font-bold mt-0.5 ${low ? 'text-red-600' : 'text-green-700'}`}>
+                    {s.balance} <span className="text-xs font-semibold">jars</span>
+                  </p>
+                  {low && (
+                    <p className="text-xs text-red-500 font-semibold mt-0.5 flex items-center justify-center gap-1">
+                      <AlertTriangle className="w-3 h-3" /> Low
+                    </p>
+                  )}
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── COMBINED DAILY CHART ── */}
       <div className="card">

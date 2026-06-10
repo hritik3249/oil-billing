@@ -383,13 +383,13 @@ export default function PurchasesPage() {
             </div>
             <div>
               <label className="label">Total Amount (₹) *</label>
-              <input type="number" min="0" className="input-field font-bold" placeholder="0"
+              <input type="number" inputMode="decimal" min="0" className="input-field font-bold" placeholder="0"
                 value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
                 onFocus={e => e.target.select()} />
             </div>
             <div>
               <label className="label">Amount Paid (₹)</label>
-              <input type="number" min="0" className="input-field" placeholder="0"
+              <input type="number" inputMode="decimal" min="0" className="input-field" placeholder="0"
                 value={form.amount_paid} onChange={e => setForm(f => ({ ...f, amount_paid: e.target.value }))}
                 onFocus={e => e.target.select()} />
             </div>
@@ -612,7 +612,7 @@ export default function PurchasesPage() {
                                     </div>
                                     <div className="col-span-2">
                                       <label className="label text-xs">Total Amount (₹)</label>
-                                      <input type="number" min="0" className="input-field font-bold" value={editForm.amount}
+                                      <input type="number" inputMode="decimal" min="0" className="input-field font-bold" value={editForm.amount}
                                         onChange={e => setEditForm(f => ({ ...f, amount: e.target.value }))}
                                         onFocus={e => e.target.select()} />
                                     </div>
@@ -675,7 +675,7 @@ export default function PurchasesPage() {
                                       <div className="grid grid-cols-2 gap-2">
                                         <div>
                                           <label className="label text-xs">Amount (₹) *</label>
-                                          <input type="number" className="input-field font-bold" placeholder="0"
+                                          <input type="number" inputMode="decimal" className="input-field font-bold" placeholder="0"
                                             value={payAmount} onChange={e => setPayAmount(e.target.value === '' ? '' : Number(e.target.value))}
                                             onFocus={e => e.target.select()} autoFocus />
                                         </div>

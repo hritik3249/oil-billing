@@ -1,7 +1,9 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useState } from 'react'
+import useSWR from 'swr'
 import { StockEntry, OilStock } from '@/types'
 import { OIL_TYPES, formatDate } from '@/lib/constants'
+import { fetcher } from '@/lib/fetcher'
 import { TableSkeleton } from '@/components/ui/Skeletons'
 import {
   Package, Plus, Trash2, X, Check, CheckCircle, AlertTriangle,
@@ -19,10 +21,6 @@ const blankForm = () => ({
 })
 
 export default function StockPage() {
-  const [stock, setStock]     = useState<OilStock[]>([])
-  const [entries, setEntries] = useState<StockEntry[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError]     = useState('')
   const [toast, setToast]     = useState('')
   const [showForm, setShowForm] = useState(false)
   const [form, setForm]       = useState(blankForm)
@@ -30,23 +28,15 @@ export default function StockPage() {
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
-  const fetchStock = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/stock?t=${Date.now()}`, { cache: 'no-store' })
-      const d = await res.json()
-      if (d.error) throw new Error(d.error)
-      setStock(d.stock || [])
-      setEntries(d.entries || [])
-      setError('')
-    } catch (e) {
-      console.error('Stock fetch error:', e)
-      setError('Could not load stock. Make sure the stock_entries table exists (run migration-ledger-stock.sql in Supabase).')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => { fetchStock() }, [fetchStock])
+  const { data, error: swrError, isLoading: loading, mutate } =
+    useSWR<{ stock: OilStock[]; entries: StockEntry[] }>('/api/stock', fetcher, {
+      revalidateOnFocus: true,
+      keepPreviousData: true,
+    })
+  const stock   = data?.stock || []
+  const entries = data?.entries || []
+  const error   = swrError ? 'Could not load stock. Please try again.' : ''
+  const fetchStock = () => mutate()
 
   const save = async () => {
     const qty = Number(form.quantity)
@@ -124,7 +114,7 @@ export default function StockPage() {
               </div>
               <div>
                 <label className="label">Jars *</label>
-                <input className="input-field" type="number" placeholder="e.g. 50" value={form.quantity}
+                <input className="input-field" type="number" inputMode="numeric" placeholder="e.g. 50" value={form.quantity}
                   onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} />
               </div>
             </div>

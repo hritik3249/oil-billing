@@ -133,5 +133,6 @@ export type DashboardStats = {
   category_wise_purchases: { category: string; total: number }[]
   recent_bills: Bill[]
   daily_chart: { date: string; sales: number; purchases: number }[]
+  stock: OilStock[]
 }
 

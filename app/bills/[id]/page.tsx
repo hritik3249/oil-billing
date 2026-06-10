@@ -389,14 +389,14 @@ export default function BillDetailPage() {
                 <div className="grid grid-cols-3 gap-2">
                   <div>
                     <label className="label text-xs">Qty</label>
-                    <input type="number" min="1" className="input-field text-center font-bold"
+                    <input type="number" inputMode="numeric" min="1" className="input-field text-center font-bold"
                       value={item.quantity}
                       onChange={e => updateEditItem(idx, 'quantity', Math.max(1, Number(e.target.value)))}
                       onFocus={e => e.target.select()} />
                   </div>
                   <div>
                     <label className="label text-xs">Rate (₹)</label>
-                    <input type="number" min="0" className="input-field text-center"
+                    <input type="number" inputMode="decimal" min="0" className="input-field text-center"
                       value={item.rate}
                       onChange={e => updateEditItem(idx, 'rate', Number(e.target.value))}
                       onFocus={e => e.target.select()} />
@@ -498,7 +498,7 @@ export default function BillDetailPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="label text-xs">Amount (₹) *</label>
-                <input type="number" min="1" className="input-field font-bold text-lg"
+                <input type="number" inputMode="decimal" min="1" className="input-field font-bold text-lg"
                   placeholder="0"
                   value={payAmount}
                   onChange={e => setPayAmount(e.target.value === '' ? '' : Number(e.target.value))}

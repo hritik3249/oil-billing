@@ -1,9 +1,11 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import useSWR from 'swr'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Customer, Bill } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/constants'
+import { fetcher } from '@/lib/fetcher'
 import { TableSkeleton } from '@/components/ui/Skeletons'
 import {
   ChevronLeft, MapPin, Phone, FileText, AlertCircle,
@@ -18,26 +20,16 @@ const waNumber = (phone: string) => {
 
 export default function CustomerLedgerPage() {
   const { id } = useParams<{ id: string }>()
-  const [customer, setCustomer] = useState<Customer | null>(null)
-  const [bills, setBills]       = useState<Bill[]>([])
-  const [loading, setLoading]   = useState(true)
-  const [error, setError]       = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!id) return
-    Promise.all([
-      fetch(`/api/customers?id=${id}&t=${Date.now()}`, { cache: 'no-store' }).then(r => r.json()),
-      fetch(`/api/bills?customer_id=${id}&t=${Date.now()}`, { cache: 'no-store' }).then(r => r.json()),
-    ]).then(([cust, billList]) => {
-      if (cust?.error) throw new Error(cust.error)
-      setCustomer(cust)
-      setBills(Array.isArray(billList) ? billList : [])
-    }).catch(e => {
-      console.error('Ledger fetch error:', e)
-      setError('Could not load customer ledger. Please try again.')
-    }).finally(() => setLoading(false))
-  }, [id])
+  const { data: customer, error: custErr, isLoading: custLoading } =
+    useSWR<Customer>(id ? `/api/customers?id=${id}` : null, fetcher, { revalidateOnFocus: true, keepPreviousData: true })
+  const { data: billData, error: billErr, isLoading: billsLoading } =
+    useSWR<Bill[]>(id ? `/api/bills?customer_id=${id}` : null, fetcher, { revalidateOnFocus: true, keepPreviousData: true })
+
+  const bills   = Array.isArray(billData) ? billData : []
+  const loading = custLoading || billsLoading
+  const error   = (custErr || billErr) ? 'Could not load customer ledger. Please try again.' : ''
 
   if (loading) return <TableSkeleton />
   if (error || !customer) return (

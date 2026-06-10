@@ -1,8 +1,10 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
+import useSWR from 'swr'
 import Link from 'next/link'
 import { Bill, Payment } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/constants'
+import { fetcher } from '@/lib/fetcher'
 import {
   Search, Plus, Filter, AlertCircle, Car, Trash2, CheckCircle,
   ChevronDown, ChevronUp, User, ReceiptText, CreditCard, CalendarDays
@@ -33,12 +35,10 @@ const customerKey = (bill: Bill) =>
   bill.customer_id || bill.customer_name.trim().toLowerCase()
 
 export default function BillsPage() {
-  const [bills, setBills]       = useState<Bill[]>([])
   const [search, setSearch]     = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo]     = useState('')
   const [dueOnly, setDueOnly]   = useState(true)
-  const [loading, setLoading]   = useState(true)
   const [toast, setToast]       = useState('')
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [openCustomer, setOpenCustomer] = useState<string | null>(null)
@@ -48,43 +48,30 @@ export default function BillsPage() {
     setTimeout(() => setToast(''), 3000)
   }
 
-  const fetchBills = async () => {
-    setLoading(true)
-    const params = new URLSearchParams()
-    if (search)   params.set('search', search)
-    if (dateFrom) params.set('date_from', dateFrom)
-    if (dateTo)   params.set('date_to', dateTo)
-    params.set('t', String(Date.now()))
-
-    const res = await fetch(`/api/bills?${params}`, {
-      cache: 'no-store',
-      headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
-    })
-    const data = await res.json()
-    setBills(Array.isArray(data) ? data : [])
-    setLoading(false)
-  }
-
-  useEffect(() => { fetchBills() }, [])
-
+  // Debounce filter changes so typing doesn't fire a request per keystroke
+  const [filters, setFilters] = useState({ search: '', dateFrom: '', dateTo: '' })
   useEffect(() => {
-    const t = setTimeout(fetchBills, 350)
+    const t = setTimeout(() => setFilters({ search, dateFrom, dateTo }), 350)
     return () => clearTimeout(t)
   }, [search, dateFrom, dateTo])
 
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') fetchBills()
-    }
-    document.addEventListener('visibilitychange', handleVisibility)
-    return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [search, dateFrom, dateTo])
+  const params = new URLSearchParams()
+  if (filters.search)   params.set('search', filters.search)
+  if (filters.dateFrom) params.set('date_from', filters.dateFrom)
+  if (filters.dateTo)   params.set('date_to', filters.dateTo)
+
+  const { data, isLoading, mutate } = useSWR<Bill[]>(`/api/bills?${params}`, fetcher, {
+    revalidateOnFocus: true,
+    keepPreviousData: true,
+  })
+  const bills = Array.isArray(data) ? data : []
+  const loading = isLoading
 
   const deleteBill = async (id: string) => {
     const res = await fetch(`/api/bills?id=${id}`, { method: 'DELETE' })
-    const data = await res.json()
-    if (data.success) {
-      setBills(prev => prev.filter(b => b.id !== id))
+    const result = await res.json()
+    if (result.success) {
+      mutate(prev => (prev || []).filter(b => b.id !== id), { revalidate: false })
       showToast('Bill deleted successfully')
     } else {
       showToast('Error deleting bill')
