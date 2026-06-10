@@ -1,7 +1,8 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
+import Link from 'next/link'
 import { Customer } from '@/types'
-import { Search, Plus, Edit2, Trash2, X, Check, MapPin, CheckCircle } from 'lucide-react'
+import { Search, Plus, Edit2, Trash2, X, Check, MapPin, CheckCircle, Phone, ChevronRight } from 'lucide-react'
 import { TableSkeleton } from '@/components/ui/Skeletons'
 
 type Mode = 'list' | 'add' | 'edit'
@@ -12,7 +13,7 @@ export default function CustomersPage() {
   const [loading, setLoading]     = useState(true)
   const [mode, setMode]           = useState<Mode>('list')
   const [selected, setSelected]   = useState<Customer | null>(null)
-  const [form, setForm]           = useState({ name: '', area: '' })
+  const [form, setForm]           = useState({ name: '', area: '', phone: '' })
   const [saving, setSaving]       = useState(false)
   const [toast, setToast]         = useState('')
 
@@ -36,8 +37,8 @@ export default function CustomersPage() {
     return () => clearTimeout(t)
   }, [search])
 
-  const openAdd  = () => { setForm({ name: '', area: '' }); setMode('add') }
-  const openEdit = (c: Customer) => { setSelected(c); setForm({ name: c.name, area: c.area }); setMode('edit') }
+  const openAdd  = () => { setForm({ name: '', area: '', phone: '' }); setMode('add') }
+  const openEdit = (c: Customer) => { setSelected(c); setForm({ name: c.name, area: c.area, phone: c.phone || '' }); setMode('edit') }
   const cancel   = () => { setMode('list'); setSelected(null) }
 
   const save = async () => {
@@ -100,6 +101,11 @@ export default function CustomersPage() {
               <input className="input-field" placeholder="Village / Town / Area" value={form.area}
                 onChange={e => setForm(f => ({ ...f, area: e.target.value }))} />
             </div>
+            <div>
+              <label className="label">Phone Number</label>
+              <input className="input-field" type="tel" placeholder="10-digit mobile number" value={form.phone}
+                onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+            </div>
             <div className="flex gap-3 pt-1">
               <button onClick={save} disabled={saving || !form.name.trim()} className="btn-primary flex items-center gap-2 flex-1 justify-center">
                 <Check className="w-5 h-5" /> {saving ? 'Saving...' : 'Save'}
@@ -123,14 +129,24 @@ export default function CustomersPage() {
         <div className="space-y-2">
           {customers.map(c => (
             <div key={c.id} className="card flex items-center justify-between gap-3 py-4">
-              <div className="flex-1 min-w-0">
-                <p className="font-bold text-gray-800 text-lg truncate">{c.name}</p>
-                {c.area && (
-                  <span className="flex items-center gap-1 text-sm text-gray-500 mt-0.5">
-                    <MapPin className="w-3.5 h-3.5" />{c.area}
-                  </span>
-                )}
-              </div>
+              <Link href={`/customers/${c.id}`} className="flex-1 min-w-0 group">
+                <p className="font-bold text-gray-800 text-lg truncate group-hover:text-orange-600 transition-colors flex items-center gap-1">
+                  {c.name}
+                  <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-orange-400" />
+                </p>
+                <div className="flex items-center gap-3 mt-0.5">
+                  {c.area && (
+                    <span className="flex items-center gap-1 text-sm text-gray-500">
+                      <MapPin className="w-3.5 h-3.5" />{c.area}
+                    </span>
+                  )}
+                  {c.phone && (
+                    <span className="flex items-center gap-1 text-sm text-gray-500">
+                      <Phone className="w-3.5 h-3.5" />{c.phone}
+                    </span>
+                  )}
+                </div>
+              </Link>
               <div className="flex gap-2 shrink-0">
                 <button onClick={() => openEdit(c)} className="p-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl transition-all">
                   <Edit2 className="w-5 h-5" />

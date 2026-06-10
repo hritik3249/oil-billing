@@ -9,6 +9,7 @@ export type Customer = {
   id: string
   name: string
   area: string
+  phone: string
   vehicle_number: string
   created_at: string
 }
@@ -100,6 +101,26 @@ export type Purchase = {
   payments: Payment[]
   notes?: string
   created_at: string
+}
+
+export type StockEntry = {
+  id: string
+  oil_type_id: string
+  oil_name: string
+  quantity: number
+  entry_type: 'production' | 'adjustment'
+  date: string
+  notes: string
+  created_at: string
+}
+
+export type OilStock = {
+  oil_type_id: string
+  oil_name: string
+  produced: number
+  sold: number
+  balance: number
+  tracking_since: string | null
 }
 
 export type DashboardStats = {
