@@ -25,7 +25,7 @@ export default function LoginPage() {
         router.push('/dashboard')
         router.refresh()
       } else {
-        setError('Invalid username or password')
+        setError(data.error || 'Invalid username or password')
       }
     } catch {
       setError('Connection error. Try again.')
@@ -92,10 +92,6 @@ export default function LoginPage() {
             </button>
           </form>
         </div>
-
-        <p className="text-center text-orange-200 text-sm mt-6 opacity-70">
-          Default: admin / oilbiz2024
-        </p>
       </div>
     </div>
   )

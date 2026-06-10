@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { checkAuth } from '@/lib/auth-server'
 
 export async function GET(req: NextRequest) {
-  if (req.cookies.get('oil_admin_auth')?.value !== 'true')
+  if (!(await checkAuth(req)))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
