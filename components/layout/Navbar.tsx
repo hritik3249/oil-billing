@@ -24,6 +24,15 @@ const bottomNav = [
   { href: '/purchases',  label: 'Purchases', icon: ShoppingCart },
 ]
 
+// Section-aware active state: /bills/abc123 highlights "Bills",
+// but /bills/new only highlights "New Bill"
+function isActive(pathname: string, href: string) {
+  if (pathname === href) return true
+  if (href === '/bills') return pathname.startsWith('/bills/') && pathname !== '/bills/new'
+  if (href === '/bills/new') return false
+  return pathname.startsWith(`${href}/`)
+}
+
 export default function Navbar() {
   const router   = useRouter()
   const pathname = usePathname()
@@ -50,7 +59,7 @@ export default function Navbar() {
             {navItems.map(({ href, label, icon: Icon }) => (
               <Link key={href} href={href}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all
-                  ${pathname === href ? 'bg-white/20 text-white' : 'text-orange-100 hover:bg-white/10'}`}
+                  ${isActive(pathname, href) ? 'bg-white/20 text-white' : 'text-orange-100 hover:bg-white/10'}`}
               >
                 <Icon className="w-4 h-4" />{label}
               </Link>
@@ -72,7 +81,7 @@ export default function Navbar() {
             {navItems.map(({ href, label, icon: Icon }) => (
               <Link key={href} href={href} onClick={() => setOpen(false)}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl text-base font-semibold transition-all
-                  ${pathname === href ? 'bg-orange-500 text-white' : 'text-orange-100 hover:bg-white/10'}`}
+                  ${isActive(pathname, href) ? 'bg-orange-500 text-white' : 'text-orange-100 hover:bg-white/10'}`}
               >
                 <Icon className="w-5 h-5" />{label}
               </Link>
@@ -85,17 +94,22 @@ export default function Navbar() {
       </header>
 
       {/* Bottom mobile nav - 5 items */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t-2 border-amber-100 z-50 shadow-xl">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t-2 border-amber-100 z-50 shadow-xl pb-safe">
         <div className="grid grid-cols-5 gap-0">
-          {bottomNav.map(({ href, label, icon: Icon }) => (
-            <Link key={href} href={href}
-              className={`flex flex-col items-center justify-center py-2 gap-0.5 transition-all
-                ${pathname === href ? 'text-orange-600' : 'text-gray-400'}`}
-            >
-              <Icon className="w-5 h-5" />
-              <span className="text-xs font-medium">{label}</span>
-            </Link>
-          ))}
+          {bottomNav.map(({ href, label, icon: Icon }) => {
+            const active = isActive(pathname, href)
+            return (
+              <Link key={href} href={href}
+                className={`flex flex-col items-center justify-center py-2 gap-0.5 transition-all active:scale-95
+                  ${active ? 'text-orange-600' : 'text-gray-400'}`}
+              >
+                <span className={`px-3 py-0.5 rounded-full transition-colors ${active ? 'bg-orange-100' : ''}`}>
+                  <Icon className="w-5 h-5" />
+                </span>
+                <span className={`text-xs ${active ? 'font-bold' : 'font-medium'}`}>{label}</span>
+              </Link>
+            )
+          })}
         </div>
       </nav>
     </>

@@ -66,7 +66,7 @@ export default function CustomersPage() {
     <div className="space-y-4">
       {/* Toast */}
       {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-500 text-white px-6 py-3 rounded-2xl shadow-xl flex items-center gap-2 font-semibold text-sm animate-bounce">
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-500 text-white px-6 py-3 rounded-2xl shadow-xl flex items-center gap-2 font-semibold text-sm animate-toast-in">
           <CheckCircle className="w-5 h-5" /> {toast}
         </div>
       )}

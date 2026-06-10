@@ -4,38 +4,78 @@
 
 @layer base {
   * { box-sizing: border-box; }
-  
+
   body {
-    font-family: system-ui, -apple-system, sans-serif;
+    font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
     -webkit-tap-highlight-color: transparent;
+    /* Digits all take equal width so amounts line up in lists */
+    font-variant-numeric: tabular-nums;
+    text-rendering: optimizeLegibility;
   }
 
   input, select, textarea {
     font-size: 16px !important; /* Prevent iOS zoom */
   }
+
+  /* Thin, unobtrusive scrollbars */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { @apply bg-amber-200 rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-amber-300; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  /* Visible focus for keyboard users without boxing every click */
+  :focus-visible {
+    outline: 2px solid theme('colors.orange.400');
+    outline-offset: 2px;
+  }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-150 text-lg shadow-md active:shadow-sm active:translate-y-px select-none;
+    @apply bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-150 text-lg shadow-md active:shadow-sm active:scale-[0.98] select-none;
   }
   .btn-secondary {
-    @apply bg-white hover:bg-gray-50 active:bg-gray-100 text-gray-700 font-semibold py-3 px-6 rounded-xl border-2 border-gray-200 transition-all duration-150 text-lg select-none;
+    @apply bg-white hover:bg-gray-50 active:bg-gray-100 text-gray-700 font-semibold py-3 px-6 rounded-xl border-2 border-gray-200 transition-all duration-150 text-lg active:scale-[0.98] select-none;
   }
   .btn-danger {
-    @apply bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-xl transition-all duration-150 select-none;
+    @apply bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-xl transition-all duration-150 active:scale-[0.98] select-none;
   }
   .btn-success {
-    @apply bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-xl transition-all duration-150 select-none;
+    @apply bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-xl transition-all duration-150 active:scale-[0.98] select-none;
   }
   .card {
-    @apply bg-white rounded-2xl shadow-sm border border-amber-100 p-5;
+    @apply bg-white rounded-2xl shadow-sm border border-amber-100 p-5 transition-shadow duration-200;
   }
   .input-field {
-    @apply w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:border-orange-400 transition-colors bg-white text-base;
+    @apply w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-100 transition-all bg-white text-base;
   }
   .label {
     @apply block text-sm font-semibold text-gray-600 mb-1.5;
+  }
+}
+
+@layer utilities {
+  /* Gentle entry for page content */
+  .animate-page-in {
+    animation: page-in 0.25s ease-out both;
+  }
+  @keyframes page-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Toast: slide down + fade, no bouncing */
+  .animate-toast-in {
+    animation: toast-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @keyframes toast-in {
+    from { opacity: 0; transform: translate(-50%, -12px); }
+    to   { opacity: 1; transform: translate(-50%, 0); }
+  }
+
+  /* Bottom nav: respect iPhone home-indicator area */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
 
